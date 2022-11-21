@@ -1,5 +1,4 @@
-package game.v2
-
+package game.v1
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,38 +17,57 @@ enum class CellState {
     operator fun not() = if (this == DEAD) ALIVE else DEAD
 }
 
-class Cell(initState: CellState, coords: Pair<Int, Int>) {
+class Cell(initState: CellState) {
     var state by mutableStateOf(initState)
-    val coords = coords
-    val neighboursList = mutableSetOf<Cell>() // save all cells to be able to get their state
-    val neighbours = neighboursList.count { it.state == CellState.ALIVE }
+    var neighbors = 0
+        set(n) {
+            field = min(max(n, 0), 8)
+        }
+
     operator fun not() {
         state = !state
     }
 
-    infix fun set(state: CellState) {
+    infix fun setCellState(state: CellState) {
         this.state = state
     }
 
     fun isAlive() = state == CellState.ALIVE
     fun isDead() = !isAlive()
 
-    constructor(initState: CellState, coords: Pair<Int, Int>, addCells: MutableSet<Cell>.() -> Unit) : this(initState, coords) {
-        neighboursList.addCells()
+    constructor(initState: CellState, initNeighbor: Int) : this(initState) {
+        neighbors = initNeighbor
     }
 }
 
 operator fun Pair<Int, Int>.plus(o: Pair<Int, Int>): Pair<Int, Int> = Pair(first + o.first, second + o.second)
 
-data class Game(val height: Int = 50, val width: Int = 50) {
-    // list of live cells initial Empty
-    var liveCells = mutableSetOf<Cell>()
+data class Game(val width: Int, val height: Int) {
+    // Initialize board with dead cells
+    private val board = Array(width) { Array(height) { Cell(CellState.DEAD) } }
     private var timer = Timer()
     private var speed = 300f
 
     // calculate next board content
     private fun step() {
-
+        // Create a new array with new cells to be able to modify the board without having artifacts
+        val prevBoard = Array(width) { w -> Array(height) { h -> Cell(board[w][h].state, board[w][h].neighbors) } }
+        for (h in 1..board.size) {
+            for (w in 1..board[h - 1].size) {
+                val i = Pair(h - 1, w - 1)
+                val c = get(i)
+                val p = prevBoard[i.first][i.second]
+                /*
+                    1. Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+                    2. Any live cell with two or three live neighbours lives on to the next generation. (No need to implement)
+                    3. Any live cell with more than three live neighbours dies, as if by overpopulation.
+                    4. Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+                 */
+                if (p.isAlive() && p.neighbors < 2) set(i, !c.state)
+                else if (p.isAlive() && p.neighbors > 3) set(i, !c.state)
+                else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
+            }
+        }
     }
 
     fun startGame() {
@@ -72,73 +90,56 @@ data class Game(val height: Int = 50, val width: Int = 50) {
         }
     }
 
+    private infix fun updateNeighbors(i: Pair<Int, Int>) {
+        val offset = listOf(
+            Pair(1, 1),
+            Pair(-1, -1),
+            Pair(-1, 1),
+            Pair(1, -1),
+            Pair(0, 1),
+            Pair(1, 0),
+            Pair(0, -1),
+            Pair(-1, 0)
+        )
+        if (get(i).isAlive()) for (o in offset) (this get (i + o)).neighbors++
+        else for (o in offset) (this get (i + o)).neighbors--
+    }
+
+    // Clamp function to make sure when checking the borders
+    // we do not get an Index out of Bounds Error
     infix fun get(i: Pair<Int, Int>): Cell {
-        for (c in liveCells) {
-            if (c.coords == i) return c
-            for (nc in c.neighboursList){
-                if(nc.coords == i) return nc
-            }
-        }
-        return Cell(CellState.DEAD, i)
+        val p = i.clamp(0, width - 1, height - 1)
+        if (p != i) return Cell(CellState.DEAD)
+        return board[p.first][p.second]
     }
 
     fun set(i: Pair<Int, Int>, state: CellState) {
-        for (c in liveCells) {
-            if (c.coords == i){
-                c set state
-                if(c.state == CellState.DEAD) liveCells.remove(c)
-                return
-            }
-            for (nc in c.neighboursList){
-                if(nc.coords == i){
-                    nc set state
-                    if(nc.state == CellState.ALIVE) {
-                        liveCells.add(nc)
-                    } else {
-                        liveCells.remove(nc)
-                        return
-                    }
-                }
-            }
-        }
-        // no we know cell to set is outside of current render blocks
-        // therefore we add it to live cells if live else ignore
-        if(state == CellState.ALIVE){
-            val cell = Cell(state,i){
-                val offset = listOf(
-                    Pair(1, 1),
-                    Pair(-1, -1),
-                    Pair(-1, 1),
-                    Pair(1, -1),
-                    Pair(0, 1),
-                    Pair(1, 0),
-                    Pair(0, -1),
-                    Pair(-1, 0)
-                )
-                for (o in offset){
-                    add(get (i+o))
-                }
-            }
-            liveCells.add(cell)
-        }
+        val p = i.clamp(0, width - 1, height - 1)
+        board[p.first][p.second].state = state
+        updateNeighbors(p)
     }
 
     private fun Pair<Int, Int>.clamp(min: Int, maxW: Int, maxH: Int) =
         Pair(max(min(first, maxW), min), max(min(second, maxH), min))
 
     fun resetGame() {
-        stopGame()
-        liveCells = mutableSetOf();
-    }
-
-    fun random(gameState: GameState, from: Pair<Int, Int> = Pair(0,0), to: Pair<Int, Int> = Pair(width,height)) {
-        stopGame()
-        for (x in from.first..to.first) {
-            for (y in from.second..to.second) {
-                set(Pair(x, y), if (Math.random() < 0.75) CellState.ALIVE else CellState.DEAD)
+        for (h in 1..board.size) {
+            for (w in 1..board[h - 1].size) {
+                val i = Pair(h - 1, w - 1)
+                set(i, CellState.DEAD)
             }
         }
-        if (gameState == GameState.RUNNING) startGame()
+        stopGame()
+    }
+
+    fun random(gameState: GameState) {
+        stopGame()
+        for (h in 1..board.size) {
+            for (w in 1..board[h - 1].size) {
+                set(Pair(h - 1, w - 1), if (Math.random() < 0.75) CellState.ALIVE else CellState.DEAD)
+            }
+        }
+        if(gameState == GameState.RUNNING ) startGame()
     }
 
     fun addGliderGun(offset: Pair<Int, Int> = Pair(5, 5), gameState: GameState) {
