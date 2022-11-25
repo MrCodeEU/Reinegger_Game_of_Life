@@ -34,7 +34,10 @@ class Cell(initState: CellState, coords: Pair<Int, Int>) {
     fun isAlive() = state == CellState.ALIVE
     fun isDead() = !isAlive()
 
-    constructor(initState: CellState, coords: Pair<Int, Int>, addCells: MutableSet<Cell>.() -> Unit) : this(initState, coords) {
+    constructor(initState: CellState, coords: Pair<Int, Int>, addCells: MutableSet<Cell>.() -> Unit) : this(
+        initState,
+        coords
+    ) {
         neighboursList.addCells()
     }
 }
@@ -43,7 +46,7 @@ operator fun Pair<Int, Int>.plus(o: Pair<Int, Int>): Pair<Int, Int> = Pair(first
 
 data class Game(val height: Int = 50, val width: Int = 50) {
     // list of live cells initial Empty
-    var liveCells = mutableSetOf<Cell>()
+    private var liveCells by mutableStateOf(mutableSetOf<Cell>())
     private var timer = Timer()
     private var speed = 300f
 
@@ -72,11 +75,18 @@ data class Game(val height: Int = 50, val width: Int = 50) {
         }
     }
 
+    fun contains(i: Pair<Int, Int>): Boolean {
+        for (c in liveCells) {
+            if (c.coords == i) return true
+        }
+        return false
+    }
+
     infix fun get(i: Pair<Int, Int>): Cell {
         for (c in liveCells) {
             if (c.coords == i) return c
-            for (nc in c.neighboursList){
-                if(nc.coords == i) return nc
+            for (nc in c.neighboursList) {
+                if (nc.coords == i) return nc
             }
         }
         return Cell(CellState.DEAD, i)
@@ -84,16 +94,17 @@ data class Game(val height: Int = 50, val width: Int = 50) {
 
     fun set(i: Pair<Int, Int>, state: CellState) {
         for (c in liveCells) {
-            if (c.coords == i){
+            if (c.coords == i) {
                 c set state
-                if(c.state == CellState.DEAD) liveCells.remove(c)
+                if (c.state == CellState.DEAD) liveCells.remove(c)
                 return
             }
-            for (nc in c.neighboursList){
-                if(nc.coords == i){
+            for (nc in c.neighboursList) {
+                if (nc.coords == i) {
                     nc set state
-                    if(nc.state == CellState.ALIVE) {
+                    if (nc.state == CellState.ALIVE) {
                         liveCells.add(nc)
+                        return
                     } else {
                         liveCells.remove(nc)
                         return
@@ -103,8 +114,8 @@ data class Game(val height: Int = 50, val width: Int = 50) {
         }
         // no we know cell to set is outside of current render blocks
         // therefore we add it to live cells if live else ignore
-        if(state == CellState.ALIVE){
-            val cell = Cell(state,i){
+        if (state == CellState.ALIVE) {
+            val cell = Cell(state, i) {
                 val offset = listOf(
                     Pair(1, 1),
                     Pair(-1, -1),
@@ -115,8 +126,8 @@ data class Game(val height: Int = 50, val width: Int = 50) {
                     Pair(0, -1),
                     Pair(-1, 0)
                 )
-                for (o in offset){
-                    add(get (i+o))
+                for (o in offset) {
+                    add(get(i + o))
                 }
             }
             liveCells.add(cell)
@@ -131,7 +142,7 @@ data class Game(val height: Int = 50, val width: Int = 50) {
         liveCells = mutableSetOf();
     }
 
-    fun random(gameState: GameState, from: Pair<Int, Int> = Pair(0,0), to: Pair<Int, Int> = Pair(width,height)) {
+    fun random(gameState: GameState, from: Pair<Int, Int> = Pair(0, 0), to: Pair<Int, Int> = Pair(50, 50)) {
         stopGame()
         for (x in from.first..to.first) {
             for (y in from.second..to.second) {

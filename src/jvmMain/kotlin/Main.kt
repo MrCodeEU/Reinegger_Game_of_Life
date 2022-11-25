@@ -1,8 +1,9 @@
-//import game.v1.*
-import game.v2.*
+import game.v1.*
+//import game.v2.*
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -14,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.godaddy.android.colorpicker.ClassicColorPicker
 import java.awt.Dimension
 import kotlin.math.max
 import kotlin.math.min
@@ -41,6 +43,7 @@ import kotlin.math.min
             b. change buttons for placing depending on rules
             c. change Size
             d save and open current grid as file
+            e. change color for live cells and auto adjust color for dead cells
         2. change starting point to middle of grid
         3. optimize as described above
         4. ...
@@ -54,6 +57,8 @@ fun App() {
     var offset by remember { mutableStateOf(Pair(0, 0)) }
     val game by remember { mutableStateOf(Game(500, 500)) }
     var faster by remember { mutableStateOf(false) }
+    var settings by remember { mutableStateOf(true) } //TODO Change to false only for debugging
+    var color by remember { mutableStateOf(Color.Cyan) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -91,11 +96,21 @@ fun App() {
                                 gameState = GameState.PAUSED
                                 game.resetGame()
                             },
-                            colors = (ButtonDefaults.buttonColors(Color.White)),
+                            colors = (ButtonDefaults.buttonColors(Color.Black)),
                             modifier = Modifier.padding(all = 3.dp)
                         )
                         {
                             Text("Reset")
+                        }
+                        Button(
+                            onClick = {
+                                settings = true;
+                            },
+                            colors = (ButtonDefaults.buttonColors(Color.White)),
+                            modifier = Modifier.padding(all = 3.dp)
+                        )
+                        {
+                            Text("Settings")
                         }
                         Column {
                             Row(horizontalArrangement = Arrangement.SpaceBetween) {
@@ -128,7 +143,7 @@ fun App() {
             )
         },
         content = {
-            BoxWithConstraints {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val scope = this
                 val minCellsSize = 5
                 val maxZoomFactor = 50
@@ -145,25 +160,28 @@ fun App() {
                             ) //only Vertical Scroll since adding horizontal scroll seems to trigger vertical as well -> diagonal Scroll ?
                             delta
                         }).pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { tap ->
-                                // Recalculate Cell Size when necessary because on tap does not react to slider change value
-                                cellSize =
-                                    Size(minCellsSize + (zoom * maxZoomFactor), minCellsSize + (zoom * maxZoomFactor))
-                                val tapOffset =
-                                    Pair((tap.x / cellSize.width).toInt(), (tap.y / cellSize.height).toInt())
-                                game.set(offset + tapOffset, !(game get (offset + tapOffset)).state)
-                                //println("CLicked at: $tap. -> / ${cellSize.width}; ${cellSize.height} -> Cell ${offset + tapOffset}")
-                                //Output for designing pre-made Cell structures
-                                println("set(offset + Pair(${(offset + tapOffset).first},${(offset + tapOffset).second}), CellState.ALIVE)")
-                            }
-                        )
+                            detectTapGestures(
+                                onTap = { tap ->
+                                    // Recalculate Cell Size when necessary because on tap does not react to slider change value
+                                    cellSize =
+                                        Size(
+                                            minCellsSize + (zoom * maxZoomFactor),
+                                            minCellsSize + (zoom * maxZoomFactor)
+                                        )
+                                    val tapOffset =
+                                        Pair((tap.x / cellSize.width).toInt(), (tap.y / cellSize.height).toInt())
+                                    game.set(offset + tapOffset, !(game get (offset + tapOffset)).state)
+                                    //println("CLicked at: $tap. -> / ${cellSize.width}; ${cellSize.height} -> Cell ${offset + tapOffset}")
+                                    //Output for designing pre-made Cell structures
+                                    println("set(offset + Pair(${(offset + tapOffset).first},${(offset + tapOffset).second}), CellState.ALIVE)")
+                                }
+                            )
 
-                    }) {
+                        }) {
                     inset {
-                        drawRect(Color.LightGray, Offset(0f, 0f), Size(scope.maxWidth.value, scope.maxHeight.value))
-                        for (w in 0..nrCellsWidth) {
-                            for (h in 0..nrCellsHeight) {
+                        //drawRect(Color.LightGray, Offset(0f, 0f), Size(scope.maxWidth.value, scope.maxHeight.value))
+                        for (w in 0 until nrCellsWidth) {
+                            for (h in 0 until nrCellsHeight) {
                                 if ((Pair(w, h) + offset).first >= game.width || (Pair(
                                         w,
                                         h
@@ -175,7 +193,7 @@ fun App() {
                                             w,
                                             h
                                         ) + offset)).state == CellState.ALIVE
-                                    ) Color.Green else Color.White,
+                                    ) color else color.complement(),
                                     topLeft = Offset(cellSize.width * w, cellSize.height * h)
                                 )
                                 drawRect(
@@ -318,18 +336,87 @@ fun App() {
                         }
                     }
                 }
+                // Settings Menu
+                if (settings) {
+                    BoxWithConstraints(
+                        modifier = Modifier.size((scope.maxWidth.value * 0.75).dp, (scope.maxHeight.value * 0.75).dp)
+                            .align(
+                                Alignment.Center
+                            ).background(Color(0.023529f, 0.223529f, 0.439215f, 0.75f))
+                    ) {
+                        Column {
+                            ClassicColorPicker(
+                                showAlphaBar = false,
+                                modifier = Modifier.size(
+                                    min(
+                                        (scope.maxWidth.value * 0.25),
+                                        (scope.maxHeight.value * 0.25)
+                                    ).dp
+                                ).padding(15.dp),
+                                color = Color.Cyan,
+                                onColorChanged = { c ->
+                                    color = c.toColor()
+                                })
+                            Text(
+                                "Color: ${(color.red * 255).toInt()}, ${(color.green * 255).toInt()}, ${(color.blue * 255).toInt()}",
+                                modifier = Modifier.padding(start = 15.dp),
+                                color = Color.White
+                            )
+                        }
+                        Column(modifier = Modifier.align(Alignment.BottomEnd)) {
+                            Button(
+                                onClick = {
+                                    settings = false
+                                },
+                                colors = (ButtonDefaults.buttonColors(Color.White)),
+                                modifier = Modifier.padding(all = 15.dp)
+                            )
+                            {
+                                Text("Close")
+                            }
+                        }
+                    }
+                }
             }
         }
     )
 }
 
+// Code to convert rgb to hsv from: https://www.geeksforgeeks.org/program-change-rgb-color-model-hsv-color-model/
+@OptIn(ExperimentalGraphicsApi::class) // to be able to use the hsv initializer of Color
+fun Color.complement(): Color {
+    val max = red.coerceAtLeast(green.coerceAtLeast(blue)); // maximum of r, g, b
+    val min = red.coerceAtMost(green.coerceAtMost(blue)); // minimum of r, g, b
+    val diff = max - min; // diff of cmax and cmin.
+    var h = -1f
+    var s = -1f
+
+    when (max) {
+        min -> h = 0f
+        red -> h = (60 * ((green - blue) / diff) + 360) % 360
+        green -> h = (60 * ((blue - red) / diff) + 120) % 360
+        blue -> h = (60 * ((red - green) / diff) + 240) % 360
+    };
+
+    s = if (max == 0f) 0f else (diff / max)
+
+    val v = max
+    // code for contrast color calculation from: https://gamedev.stackexchange.com/questions/38536/given-a-rgb-color-x-how-to-find-the-most-contrasting-color-y
+    return Color.hsv(
+        (h + 180f) % 360,
+        s,
+        1f - v
+    )
+}
+
+
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "Reinegger's Game of Life",
-        state = rememberWindowState(width = 600.dp, height = 600.dp)
+        state = rememberWindowState(width = 800.dp, height = 700.dp)
     ) {
-        window.minimumSize = Dimension(400, 400)
+        window.minimumSize = Dimension(600, 600)
         App()
     }
 }
