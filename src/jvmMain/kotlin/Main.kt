@@ -4,6 +4,7 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -202,6 +203,7 @@ fun App() {
                                     topLeft = Offset(cellSize.width * w, cellSize.height * h),
                                     style = Stroke(2f)
                                 )
+                                // For Debugging print index of every cell
                                 /*drawContext.canvas.nativeCanvas.apply {
                                     drawString(
                                         "${w + offset.first},${h + offset.second}",
@@ -344,26 +346,86 @@ fun App() {
                                 Alignment.Center
                             ).background(Color(0.023529f, 0.223529f, 0.439215f, 0.75f))
                     ) {
-                        Column {
-                            ClassicColorPicker(
-                                showAlphaBar = false,
-                                modifier = Modifier.size(
-                                    min(
-                                        (scope.maxWidth.value * 0.25),
-                                        (scope.maxHeight.value * 0.25)
-                                    ).dp
-                                ).padding(15.dp),
-                                color = Color.Cyan,
-                                onColorChanged = { c ->
-                                    color = c.toColor()
-                                })
-                            Text(
-                                "Color: ${(color.red * 255).toInt()}, ${(color.green * 255).toInt()}, ${(color.blue * 255).toInt()}",
-                                modifier = Modifier.padding(start = 15.dp),
-                                color = Color.White
-                            )
+
+                        Row(modifier = Modifier.align(Alignment.TopStart)) {
+                            //Color Picker
+                            Column {
+                                ClassicColorPicker(
+                                    showAlphaBar = false,
+                                    modifier = Modifier.size(
+                                        min(
+                                            (scope.maxWidth.value * 0.25),
+                                            (scope.maxHeight.value * 0.25)
+                                        ).dp
+                                    ).padding(15.dp),
+                                    color = Color.Cyan,
+                                    onColorChanged = { c ->
+                                        color = c.toColor()
+                                    })
+                                Text(
+                                    "Color: ${(color.red * 255).toInt()}, ${(color.green * 255).toInt()}, ${(color.blue * 255).toInt()}",
+                                    modifier = Modifier.padding(start = 15.dp),
+                                    color = Color.White
+                                )
+                            }
+                            //Rules
+                            Column() {
+                                var expanded by remember { mutableStateOf(false) }
+                                val rules = listOf("Conway", "B", "C", "D", "E", "F")
+                                var selectedIndex by remember { mutableStateOf(0) }
+                                Box(
+                                    modifier = Modifier.size((scope.maxWidth.value * 0.25).dp)
+                                        .wrapContentSize(Alignment.TopStart).padding(15.dp)
+                                ) {
+                                    Text(
+                                        rules[selectedIndex],
+                                        modifier = Modifier.fillMaxWidth().clickable(onClick = { expanded = true })
+                                            .background(
+                                                Color.Gray
+                                            )
+                                    )
+                                    DropdownMenu(
+                                        expanded = expanded,
+                                        onDismissRequest = { expanded = false },
+                                        modifier = Modifier.fillMaxWidth().background(
+                                            Color.Gray
+                                        )
+                                    ) {
+                                        rules.forEachIndexed { index, s ->
+                                            DropdownMenuItem(onClick = {
+                                                selectedIndex = index
+                                                expanded = false
+                                                game.rule = index
+                                            }) {
+                                                Text(s)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        Column(modifier = Modifier.align(Alignment.BottomEnd)) {
+                        Row(modifier = Modifier.align(Alignment.BottomEnd), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            Button(
+                                onClick = {
+                                    // TODO open file menu and dave all live cell indices
+                                },
+                                colors = (ButtonDefaults.buttonColors(Color.White)),
+                                modifier = Modifier.padding(all = 15.dp)
+                            )
+                            {
+                                Text("Save to File")
+                            }
+                            Button(
+                                onClick = {
+                                    // TODO open file dialog and load list of live cell indices
+                                    game.initialize(listOf(Pair(0,0), Pair(1,1), Pair(2,2), Pair(3,3), Pair(4,4), Pair(5,5), Pair(6,6), Pair(7,7)))
+                                },
+                                colors = (ButtonDefaults.buttonColors(Color.White)),
+                                modifier = Modifier.padding(all = 15.dp)
+                            )
+                            {
+                                Text("Load from File")
+                            }
                             Button(
                                 onClick = {
                                     settings = false

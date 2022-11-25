@@ -1,4 +1,5 @@
 package game.v1
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -42,11 +43,16 @@ class Cell(initState: CellState) {
 
 operator fun Pair<Int, Int>.plus(o: Pair<Int, Int>): Pair<Int, Int> = Pair(first + o.first, second + o.second)
 
-data class Game(val width: Int, val height: Int) {
+data class Game(val width: Int, val height: Int, var rule: Int = 0) {
     // Initialize board with dead cells
     private val board = Array(width) { Array(height) { Cell(CellState.DEAD) } }
     private var timer = Timer()
     private var speed = 300f
+
+    //Constructor for initialization
+    constructor(width: Int, height: Int, liveCells: List<Pair<Int,Int>>) : this(width,height) {
+        initialize(liveCells)
+    }
 
     // calculate next board content
     private fun step() {
@@ -63,9 +69,20 @@ data class Game(val width: Int, val height: Int) {
                     3. Any live cell with more than three live neighbours dies, as if by overpopulation.
                     4. Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
                  */
-                if (p.isAlive() && p.neighbors < 2) set(i, !c.state)
-                else if (p.isAlive() && p.neighbors > 3) set(i, !c.state)
-                else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
+                when(rule){
+                    0 -> {
+                        if (p.isAlive() && p.neighbors < 2) set(i, !c.state)
+                        else if (p.isAlive() && p.neighbors > 3) set(i, !c.state)
+                        else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
+                    }
+                    1 -> {
+                        //...
+                    }
+                    2 -> {
+                        //..
+                    }
+                    else -> throw IndexOutOfBoundsException("There exists no rule with index $rule")
+                }
             }
         }
     }
@@ -139,7 +156,7 @@ data class Game(val width: Int, val height: Int) {
                 set(Pair(h - 1, w - 1), if (Math.random() < 0.75) CellState.ALIVE else CellState.DEAD)
             }
         }
-        if(gameState == GameState.RUNNING ) startGame()
+        if (gameState == GameState.RUNNING) startGame()
     }
 
     fun addGliderGun(offset: Pair<Int, Int> = Pair(5, 5), gameState: GameState) {
@@ -201,5 +218,9 @@ data class Game(val width: Int, val height: Int) {
         set(offset + Pair(39, 23), CellState.ALIVE)
         set(offset + Pair(40, 23), CellState.ALIVE)
         if (gameState == GameState.RUNNING) startGame()
+    }
+
+    fun initialize(liveCells: List<Pair<Int, Int>>) {
+        liveCells.forEach { set(it,CellState.ALIVE) }
     }
 }
