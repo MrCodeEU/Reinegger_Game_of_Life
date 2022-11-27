@@ -29,25 +29,15 @@ import java.awt.Dimension
 import kotlin.math.max
 import kotlin.math.min
 
-//+++++++++++++++++++++++++++++++++++++++++
-// TODO: optimize next step calculation to increase speed and possibly size og board
-//      Idea save a list of all Cells that are Alive and only to calculations with those
-//      To do that each cells needs to be able to tell his neighbours of possible state change
-//      Each Cell needs to know its position (probably as a Pair) and when Drawing check if Pair is
-//      inside view range and only Draw if necessary.
-//+++++++++++++++++++++++++++++++++++++++++
 
 /*
     TODO:
         1. Create a new Window to set Settings
             a. change rules?
             b. change buttons for placing depending on rules
-            c. change Size
+            c. change Size -> change starting point offset to be middle
             d save and open current grid as file
-            e. change color for live cells and auto adjust color for dead cells
         2. change starting point to middle of grid
-        3. optimize as described above
-        4. ...
  */
 
 @Composable
@@ -55,8 +45,8 @@ import kotlin.math.min
 fun App() {
     var gameState by remember { mutableStateOf(GameState.PAUSED) }
     var zoom by remember { mutableStateOf(0.5f) }
-    var offset by remember { mutableStateOf(Pair(0, 0)) }
     val game by remember { mutableStateOf(Game(500, 500)) }
+    var offset by remember { mutableStateOf(Pair(game.width / 2, game.height / 2)) }
     var faster by remember { mutableStateOf(false) }
     var settings by remember { mutableStateOf(true) } //TODO Change to false only for debugging
     var color by remember { mutableStateOf(Color.Cyan) }
@@ -105,7 +95,7 @@ fun App() {
                         }
                         Button(
                             onClick = {
-                                settings = true;
+                                settings = true
                             },
                             colors = (ButtonDefaults.buttonColors(Color.White)),
                             modifier = Modifier.padding(all = 3.dp)
@@ -161,22 +151,24 @@ fun App() {
                             ) //only Vertical Scroll since adding horizontal scroll seems to trigger vertical as well -> diagonal Scroll ?
                             delta
                         }).pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { tap ->
-                                    // Recalculate Cell Size when necessary because on tap does not react to slider change value
-                                    cellSize =
-                                        Size(
-                                            minCellsSize + (zoom * maxZoomFactor),
-                                            minCellsSize + (zoom * maxZoomFactor)
-                                        )
-                                    val tapOffset =
-                                        Pair((tap.x / cellSize.width).toInt(), (tap.y / cellSize.height).toInt())
-                                    game.set(offset + tapOffset, !(game get (offset + tapOffset)).state)
-                                    //println("CLicked at: $tap. -> / ${cellSize.width}; ${cellSize.height} -> Cell ${offset + tapOffset}")
-                                    //Output for designing pre-made Cell structures
-                                    println("set(offset + Pair(${(offset + tapOffset).first},${(offset + tapOffset).second}), CellState.ALIVE)")
-                                }
-                            )
+                            if (!settings) { // do not allow changing cells when in settings menu
+                                detectTapGestures(
+                                    onTap = { tap ->
+                                        // Recalculate Cell Size when necessary because on tap does not react to slider change value
+                                        cellSize =
+                                            Size(
+                                                minCellsSize + (zoom * maxZoomFactor),
+                                                minCellsSize + (zoom * maxZoomFactor)
+                                            )
+                                        val tapOffset =
+                                            Pair((tap.x / cellSize.width).toInt(), (tap.y / cellSize.height).toInt())
+                                        game.set(offset + tapOffset, !(game get (offset + tapOffset)).state)
+                                        //println("CLicked at: $tap. -> / ${cellSize.width}; ${cellSize.height} -> Cell ${offset + tapOffset}")
+                                        //Output for designing pre-made Cell structures
+                                        //println("set(offset + Pair(${(offset + tapOffset).first},${(offset + tapOffset).second}), CellState.ALIVE)")
+                                    }
+                                )
+                            }
 
                         }) {
                     inset {
@@ -218,7 +210,10 @@ fun App() {
                     }
                 }
                 // Zoom
-                Column(modifier = Modifier.align(Alignment.BottomStart).width(((5 * scope.maxWidth.value) / 8).dp)) {
+                Column(
+                    modifier = Modifier.align(Alignment.BottomStart).width(((5 * scope.maxWidth.value) / 8).dp)
+                        .background(Color(0.423529f, 0.623529f, 0.639215f, 0.75f))
+                ) {
                     Text("Zoom:")
                     Row(horizontalArrangement = Arrangement.SpaceBetween) {
                         // add a trailing zero to the rounded number to keep it at consistent 2 decimals
@@ -280,17 +275,28 @@ fun App() {
                     {
                         Text("Random")
                     }
-                    Text("10 Steps:", modifier = Modifier.align(Alignment.End).padding(end = 5.dp))
-                    Checkbox(
-                        checked = faster,
-                        onCheckedChange = {
-                            faster = it
-                        }, modifier = Modifier.align(Alignment.End)
-                    )
-                    Text(
-                        "X,Y: ${offset.first}, ${offset.second}",
-                        modifier = Modifier.align(Alignment.End).padding(end = 5.dp)
-                    )
+                    BoxWithConstraints(
+                        modifier = Modifier.background(Color(0.423529f, 0.623529f, 0.639215f, 0.75f)).align(
+                            Alignment.End
+                        )
+                    ) {
+                        Column(verticalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                "10 Steps:",
+                                modifier = Modifier.padding(end = 5.dp)
+                            )
+                            Checkbox(
+                                checked = faster,
+                                onCheckedChange = {
+                                    faster = it
+                                }
+                            )
+                            Text(
+                                "X,Y: ${offset.first}, ${offset.second}",
+                                modifier = Modifier.padding(end = 5.dp)
+                            )
+                        }
+                    }
                     Button(
                         onClick = {
                             offset = Pair(offset.first, max(0, offset.second - steps))
@@ -369,7 +375,7 @@ fun App() {
                                 )
                             }
                             //Rules
-                            Column() {
+                            Column {
                                 var expanded by remember { mutableStateOf(false) }
                                 val rules = listOf("Conway", "B", "C", "D", "E", "F")
                                 var selectedIndex by remember { mutableStateOf(0) }
@@ -387,7 +393,7 @@ fun App() {
                                     DropdownMenu(
                                         expanded = expanded,
                                         onDismissRequest = { expanded = false },
-                                        modifier = Modifier.fillMaxWidth().background(
+                                        modifier = Modifier.size((scope.maxWidth.value * 0.25).dp).background(
                                             Color.Gray
                                         )
                                     ) {
@@ -404,7 +410,10 @@ fun App() {
                                 }
                             }
                         }
-                        Row(modifier = Modifier.align(Alignment.BottomEnd), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
                             Button(
                                 onClick = {
                                     // TODO open file menu and dave all live cell indices
@@ -418,7 +427,18 @@ fun App() {
                             Button(
                                 onClick = {
                                     // TODO open file dialog and load list of live cell indices
-                                    game.initialize(listOf(Pair(0,0), Pair(1,1), Pair(2,2), Pair(3,3), Pair(4,4), Pair(5,5), Pair(6,6), Pair(7,7)))
+                                    game.initialize(
+                                        listOf(
+                                            Pair(0, 0),
+                                            Pair(1, 1),
+                                            Pair(2, 2),
+                                            Pair(3, 3),
+                                            Pair(4, 4),
+                                            Pair(5, 5),
+                                            Pair(6, 6),
+                                            Pair(7, 7)
+                                        )
+                                    )
                                 },
                                 colors = (ButtonDefaults.buttonColors(Color.White)),
                                 modifier = Modifier.padding(all = 15.dp)
@@ -447,27 +467,25 @@ fun App() {
 // Code to convert rgb to hsv from: https://www.geeksforgeeks.org/program-change-rgb-color-model-hsv-color-model/
 @OptIn(ExperimentalGraphicsApi::class) // to be able to use the hsv initializer of Color
 fun Color.complement(): Color {
-    val max = red.coerceAtLeast(green.coerceAtLeast(blue)); // maximum of r, g, b
-    val min = red.coerceAtMost(green.coerceAtMost(blue)); // minimum of r, g, b
-    val diff = max - min; // diff of cmax and cmin.
+    val max = red.coerceAtLeast(green.coerceAtLeast(blue)) // maximum of r, g, b
+    val min = red.coerceAtMost(green.coerceAtMost(blue)) // minimum of r, g, b
+    val diff = max - min // diff of max and min.
     var h = -1f
-    var s = -1f
 
     when (max) {
         min -> h = 0f
         red -> h = (60 * ((green - blue) / diff) + 360) % 360
         green -> h = (60 * ((blue - red) / diff) + 120) % 360
         blue -> h = (60 * ((red - green) / diff) + 240) % 360
-    };
+    }
 
-    s = if (max == 0f) 0f else (diff / max)
+    val s = if (max == 0f) 0f else (diff / max)
 
-    val v = max
     // code for contrast color calculation from: https://gamedev.stackexchange.com/questions/38536/given-a-rgb-color-x-how-to-find-the-most-contrasting-color-y
     return Color.hsv(
         (h + 180f) % 360,
         s,
-        1f - v
+        1f - max
     )
 }
 

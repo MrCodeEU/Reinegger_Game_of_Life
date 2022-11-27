@@ -159,7 +159,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addGliderGun(offset: Pair<Int, Int> = Pair(5, 5), gameState: GameState) {
+    fun addGliderGun(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
         stopGame()
         set(offset + Pair(2, 8), CellState.ALIVE)
         set(offset + Pair(2, 9), CellState.ALIVE)
@@ -200,7 +200,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addGlider(offset: Pair<Int, Int> = Pair(5, 5), gameState: GameState) {
+    fun addGlider(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
         stopGame()
         set(offset + Pair(3, 2), CellState.ALIVE)
         set(offset + Pair(4, 3), CellState.ALIVE)
@@ -210,7 +210,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addPentomino(offset: Pair<Int, Int> = Pair(20, 20), gameState: GameState) {
+    fun addPentomino(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
         stopGame()
         set(offset + Pair(38, 24), CellState.ALIVE)
         set(offset + Pair(39, 25), CellState.ALIVE)
