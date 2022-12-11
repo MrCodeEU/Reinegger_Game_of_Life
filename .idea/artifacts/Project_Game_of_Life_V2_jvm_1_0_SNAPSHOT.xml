@@ -1,8 +1,6 @@
 <component name="ArtifactManager">
   <artifact type="jar" name="Project_Game_of_Life_V2-jvm-1.0-SNAPSHOT">
     <output-path>$PROJECT_DIR$/build/libs</output-path>
-    <root id="archive" name="Project_Game_of_Life_V2-jvm-1.0-SNAPSHOT.jar">
-      <element id="module-output" name="Project_Game_of_Life_V2.jvmMain" />
-    </root>
+    <root id="archive" name="Project_Game_of_Life_V2-jvm-1.0-SNAPSHOT.jar" />
   </artifact>
 </component>

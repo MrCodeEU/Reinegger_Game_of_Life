@@ -7,7 +7,14 @@ import java.util.*
 import kotlin.concurrent.timerTask
 import kotlin.math.max
 import kotlin.math.min
-
+/*
+    This is the main logic of the game we use a two-dimensional array for the board.
+    This is the simplest and easiest approach. Every cell remembers its state and the
+    number of neighbors. THe number of neighbors gets updated for every cell when a cell
+    changes state on the board.
+    Every game step every cell on the board has to be checked. This becomes slow when there
+    are a lot of live cells.
+ */
 enum class GameState {
     PAUSED, RUNNING;
 }
@@ -50,7 +57,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
     private var speed = 300f
 
     //Constructor for initialization
-    constructor(width: Int, height: Int, liveCells: List<Pair<Int,Int>>) : this(width,height) {
+    constructor(width: Int, height: Int, liveCells: List<Pair<Int, Int>>) : this(width, height) {
         initialize(liveCells)
     }
 
@@ -69,18 +76,27 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
                     3. Any live cell with more than three live neighbours dies, as if by overpopulation.
                     4. Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
                  */
-                when(rule){
-                    0 -> {
-                        if (p.isAlive() && p.neighbors < 2) set(i, !c.state)
-                        else if (p.isAlive() && p.neighbors > 3) set(i, !c.state)
+                when (rule) {
+                    0 -> { // Conway (23/3)
+                        if (p.isAlive() && (p.neighbors != 2 && p.neighbors != 3)) set(i, !c.state)
                         else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
                     }
-                    1 -> {
-                        //...
+
+                    1 -> { // 3/3
+                        if (p.isAlive() && p.neighbors != 3) set(i, !c.state)
+                        else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
                     }
-                    2 -> {
-                        //..
+
+                    2 -> { // 13/3
+                        if (p.isAlive() && (p.neighbors != 1 && p.neighbors != 3)) set(i, !c.state)
+                        else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
                     }
+
+                    3 -> { // 34/3
+                        if (p.isAlive() && (p.neighbors != 4 && p.neighbors != 3)) set(i, !c.state)
+                        else if (p.isDead() && p.neighbors == 3) set(i, !c.state)
+                    }
+
                     else -> throw IndexOutOfBoundsException("There exists no rule with index $rule")
                 }
             }
@@ -149,17 +165,21 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         stopGame()
     }
 
-    fun random(gameState: GameState) {
+    fun random(gameState: GameState, offset: Pair<Int, Int> = Pair(250,250)) {
         stopGame()
-        for (h in 1..board.size) {
-            for (w in 1..board[h - 1].size) {
-                set(Pair(h - 1, w - 1), if (Math.random() < 0.75) CellState.ALIVE else CellState.DEAD)
+        val x = min(board.size, 200)
+        val y = min(board[0].size, 200)
+        val offsetX = offset.first
+        val offsetY = offset.second
+        for (h in max(0,(offsetX - x / 2))..min(board.size,(offsetX + x / 2))) {
+            for (w in max(0,(offsetY - y / 2))..min(board[0].size,(offsetY + y / 2))) {
+                set(Pair(h - 1, w - 1), if (Math.random() < 0.33) CellState.ALIVE else CellState.DEAD)
             }
         }
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addGliderGun(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
+    fun addGliderGun(offset: Pair<Int, Int> = Pair(width / 2, height / 2), gameState: GameState) {
         stopGame()
         set(offset + Pair(2, 8), CellState.ALIVE)
         set(offset + Pair(2, 9), CellState.ALIVE)
@@ -200,7 +220,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addGlider(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
+    fun addGlider(offset: Pair<Int, Int> = Pair(width / 2, height / 2), gameState: GameState) {
         stopGame()
         set(offset + Pair(3, 2), CellState.ALIVE)
         set(offset + Pair(4, 3), CellState.ALIVE)
@@ -210,7 +230,7 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
         if (gameState == GameState.RUNNING) startGame()
     }
 
-    fun addPentomino(offset: Pair<Int, Int> = Pair(width/2, height/2), gameState: GameState) {
+    fun addPentomino(offset: Pair<Int, Int> = Pair(width / 2, height / 2), gameState: GameState) {
         stopGame()
         set(offset + Pair(38, 24), CellState.ALIVE)
         set(offset + Pair(39, 25), CellState.ALIVE)
@@ -221,6 +241,16 @@ data class Game(val width: Int, val height: Int, var rule: Int = 0) {
     }
 
     fun initialize(liveCells: List<Pair<Int, Int>>) {
-        liveCells.forEach { set(it,CellState.ALIVE) }
+        liveCells.forEach { set(it, CellState.ALIVE) }
+    }
+
+    override fun toString(): String {
+        val sb = StringBuilder()
+        for (h in 1..board.size) {
+            for (w in 1..board[h - 1].size) {
+                if (get(Pair(h - 1, w - 1)).isAlive()) sb.appendLine("${h - 1},${w - 1}")
+            }
+        }
+        return sb.toString()
     }
 }

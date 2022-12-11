@@ -1,5 +1,4 @@
 import game.v1.*
-//import game.v2.*
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -26,18 +25,20 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.godaddy.android.colorpicker.ClassicColorPicker
 import java.awt.Dimension
+import java.io.File
+import javax.swing.JFileChooser
 import kotlin.math.max
 import kotlin.math.min
 
 
 /*
-    TODO:
-        1. Create a new Window to set Settings
-            a. change rules?
-            b. change buttons for placing depending on rules
-            c. change Size -> change starting point offset to be middle
-            d save and open current grid as file
-        2. change starting point to middle of grid
+    This is the UI of my attempt at making a Conway's Game of Life clone.
+    It is possible to zoom in and move around the grid.
+    The Player can also place and remove live cells.
+    The Settings-menu allows to change the color of the live cells and the dead cell color adapts.
+    It is also possible to change the rules of the board with a Dropdown. Currently, there are four rules
+    possibly add more in the future?
+    There are also controls to reset/pause/start and change the speed of the game
  */
 
 @Composable
@@ -48,8 +49,9 @@ fun App() {
     val game by remember { mutableStateOf(Game(500, 500)) }
     var offset by remember { mutableStateOf(Pair(game.width / 2, game.height / 2)) }
     var faster by remember { mutableStateOf(false) }
-    var settings by remember { mutableStateOf(true) } //TODO Change to false only for debugging
+    var settings by remember { mutableStateOf(false) }
     var color by remember { mutableStateOf(Color.Cyan) }
+    var selectedIndex by remember { mutableStateOf(0) } // rules
     Scaffold(
         topBar = {
             TopAppBar(
@@ -95,6 +97,8 @@ fun App() {
                         }
                         Button(
                             onClick = {
+                                game.stopGame()
+                                gameState = GameState.PAUSED
                                 settings = true
                             },
                             colors = (ButtonDefaults.buttonColors(Color.White)),
@@ -151,10 +155,10 @@ fun App() {
                             ) //only Vertical Scroll since adding horizontal scroll seems to trigger vertical as well -> diagonal Scroll ?
                             delta
                         }).pointerInput(Unit) {
-                            if (!settings) { // do not allow changing cells when in settings menu
-                                detectTapGestures(
-                                    onTap = { tap ->
-                                        // Recalculate Cell Size when necessary because on tap does not react to slider change value
+                            detectTapGestures(
+                                onTap = { tap ->
+                                    // Recalculate Cell Size when necessary because on tap does not react to slider change value
+                                    if (!settings) { // do not allow changing cells when in settings menu
                                         cellSize =
                                             Size(
                                                 minCellsSize + (zoom * maxZoomFactor),
@@ -167,8 +171,8 @@ fun App() {
                                         //Output for designing pre-made Cell structures
                                         //println("set(offset + Pair(${(offset + tapOffset).first},${(offset + tapOffset).second}), CellState.ALIVE)")
                                     }
-                                )
-                            }
+                                }
+                            )
 
                         }) {
                     inset {
@@ -229,6 +233,7 @@ fun App() {
                     )
                 }
                 // Movement of Grid + random placement + Structures
+                // TODO: Change buttons when choosing different rules to place different structures?
                 Column(modifier = Modifier.align(Alignment.BottomEnd)) {
                     val steps = if (faster) 10 else 1
                     Button(
@@ -266,7 +271,7 @@ fun App() {
                     }
                     Button(
                         onClick = {
-                            game.random(gameState = gameState)
+                            game.random(gameState = gameState, offset)
                         },
                         colors = (ButtonDefaults.buttonColors(Color.Cyan)),
                         modifier = Modifier.padding(all = 0.dp).align(Alignment.End),
@@ -377,8 +382,7 @@ fun App() {
                             //Rules
                             Column {
                                 var expanded by remember { mutableStateOf(false) }
-                                val rules = listOf("Conway", "B", "C", "D", "E", "F")
-                                var selectedIndex by remember { mutableStateOf(0) }
+                                val rules = listOf("Conway", "3/3 World", "13/3 World", "34/3 World") // https://de.wikipedia.org/wiki/Conways_Spiel_des_Lebens#:~:text=5%5D%5B6%5D-,Abweichende%20Regeln,-%5BBearbeiten%20%7C
                                 Box(
                                     modifier = Modifier.size((scope.maxWidth.value * 0.25).dp)
                                         .wrapContentSize(Alignment.TopStart).padding(15.dp)
@@ -416,7 +420,12 @@ fun App() {
                         ) {
                             Button(
                                 onClick = {
-                                    // TODO open file menu and dave all live cell indices
+                                    val fileChooser = JFileChooser()
+                                    fileChooser.showOpenDialog(null)
+                                    val file = fileChooser.selectedFile
+                                    if (file != null) {
+                                        File(file.absoluteFile.toString()).writeText(game.toString())
+                                    }
                                 },
                                 colors = (ButtonDefaults.buttonColors(Color.White)),
                                 modifier = Modifier.padding(all = 15.dp)
@@ -426,19 +435,22 @@ fun App() {
                             }
                             Button(
                                 onClick = {
-                                    // TODO open file dialog and load list of live cell indices
-                                    game.initialize(
-                                        listOf(
-                                            Pair(0, 0),
-                                            Pair(1, 1),
-                                            Pair(2, 2),
-                                            Pair(3, 3),
-                                            Pair(4, 4),
-                                            Pair(5, 5),
-                                            Pair(6, 6),
-                                            Pair(7, 7)
-                                        )
-                                    )
+                                    val fileChooser = JFileChooser()
+                                    fileChooser.showOpenDialog(null)
+                                    val file = fileChooser.selectedFile
+                                    if (file != null) {
+                                        try {
+                                            val lines = File(file.absoluteFile.toString()).readLines()
+                                            game.initialize(lines.map {
+                                                Pair(
+                                                    it.split(",").first().toInt(),
+                                                    it.split(",").last().toInt()
+                                                )
+                                            })
+                                        } catch (e: Exception) {
+                                            println("something went wrong while processing file: ${file.absoluteFile}")
+                                        }
+                                    }
                                 },
                                 colors = (ButtonDefaults.buttonColors(Color.White)),
                                 modifier = Modifier.padding(all = 15.dp)
